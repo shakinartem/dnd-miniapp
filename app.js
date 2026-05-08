@@ -485,48 +485,96 @@
     const ui = pedestalWrapper(playerKey);
     setCopy(
       "Загадка II",
-      "Сила требует ритма.",
-      "Бей быстро и ровно. Если медлить, вес снова пойдет вверх."
+      "Сила требует точного удара.",
+      "Сначала возьми молот, затем бей в отмеченную точку на чаше. Если замедлиться, вес вернется обратно."
     );
     ui.game.innerHTML = `
       <div class="strength-shell">
-        <div class="strength-stage">
+        <div class="strength-stage" id="strengthStage">
           <img class="strength-bowl-image" src="${assets.strengthBowl}" alt="" aria-hidden="true" />
           <div class="strength-weight" id="strengthWeight"></div>
-          <img class="hammer-image" src="${assets.hammer}" alt="" aria-hidden="true" />
+          <button class="strength-target" id="strengthTarget" type="button" aria-label="Точка удара"></button>
+          <button class="hammer-pickup" id="hammerPickup" type="button" aria-label="Взять молот">
+            <img class="hammer-image" src="${assets.hammer}" alt="" aria-hidden="true" />
+          </button>
+          <div class="hammer-cursor" id="hammerCursor" aria-hidden="true">
+            <img class="hammer-image" src="${assets.hammer}" alt="" />
+          </div>
         </div>
         <div class="strength-meter"><div class="strength-fill" id="strengthFill"></div></div>
-        <button class="primary-button strength-button" id="tapHammer" type="button">Ударить</button>
+        <div class="tagline" id="strengthHint">Возьми молот и перенеси удар на чашу.</div>
       </div>
     `;
 
     const fill = document.getElementById("strengthFill");
     const weight = document.getElementById("strengthWeight");
+    const stage = document.getElementById("strengthStage");
+    const target = document.getElementById("strengthTarget");
+    const pickup = document.getElementById("hammerPickup");
+    const hammerCursor = document.getElementById("hammerCursor");
+    const hint = document.getElementById("strengthHint");
     let power = 0;
     let solved = false;
+    let carrying = false;
 
     function redraw() {
       fill.style.width = `${Math.max(0, Math.min(100, power))}%`;
-      weight.style.transform = `translate(-50%, ${Math.min(140, power * 0.9)}px)`;
+      weight.style.transform = `translate(-50%, ${Math.min(170, power * 1.42)}px)`;
+      target.style.transform = `translate(-50%, ${Math.min(138, power * 1.14)}px)`;
+    }
+
+    function updateHammerPosition(event) {
+      if (!carrying) {
+        return;
+      }
+      const rect = stage.getBoundingClientRect();
+      hammerCursor.style.left = `${event.clientX - rect.left}px`;
+      hammerCursor.style.top = `${event.clientY - rect.top}px`;
     }
 
     const decay = window.setInterval(function () {
       if (solved) {
         return;
       }
-      power = Math.max(0, power - 2.4);
+      power = Math.max(0, power - 3.15);
       redraw();
-    }, 110);
+    }, 90);
 
-    document.getElementById("tapHammer").addEventListener("click", function () {
+    pickup.addEventListener("click", function () {
+      if (solved || carrying) {
+        return;
+      }
+      carrying = true;
+      stage.classList.add("hammer-ready");
+      hammerCursor.classList.add("visible");
+      hint.textContent = "Теперь бей по метке на чаше.";
+      setFeedback("Молот послушно тянется за рукой.");
+      audio.hum(0.45);
+    });
+
+    stage.addEventListener("pointermove", updateHammerPosition);
+
+    target.addEventListener("click", function (event) {
       if (solved) {
         return;
       }
-      power = Math.min(100, power + 8);
+      if (!carrying) {
+        setFeedback("Сначала возьми молот.", "error");
+        audio.wrong();
+        return;
+      }
+      updateHammerPosition(event);
+      power = Math.min(100, power + 4.2);
       redraw();
-      audio.hum(0.7);
+      target.classList.remove("impact");
+      void target.offsetWidth;
+      target.classList.add("impact");
+      audio.hum(0.82);
       if (power >= 100) {
         solved = true;
+        carrying = false;
+        stage.classList.remove("hammer-ready");
+        hammerCursor.classList.remove("visible");
         ui.status.innerHTML = `<span class="solved-badge">Чаша силы опускается.</span>`;
         setFeedback("Удары сливаются в один тяжелый ритм, и пьедестал принимает силу.", "success");
         activatePedestal(playerKey);
@@ -600,8 +648,8 @@
         const success = first.dataset.symbol === second.dataset.symbol;
         if (success) {
           window.setTimeout(function () {
-            first.classList.add("matched");
-            second.classList.add("matched");
+            first.classList.add("flipped", "matched");
+            second.classList.add("flipped", "matched");
             openCards.length = 0;
             matched += 2;
             locked = false;
@@ -631,56 +679,125 @@
     const ui = pedestalWrapper(playerKey);
     setCopy(
       "Загадка II",
-      "Доверие любит правильное распределение.",
-      "Переставь сферы, чтобы получить последовательность: красный, синий, красный, синий, красный, синий."
+      "Доверие любит правильный порядок движения.",
+      "Красные шары движутся только вправо, синие только влево. Ход возможен на одну пустую клетку или прыжком через один шар."
     );
     ui.game.innerHTML = `
       <div class="trust-shell">
-        <img class="trust-board-image" src="${assets.ritaBoard}" alt="" aria-hidden="true" />
-        <div class="trust-target">Цель: красный, синий, красный, синий, красный, синий.</div>
-        <div class="trust-groove" id="trustGroove"></div>
+        <div class="trust-board" id="trustBoard">
+          <img class="trust-board-image" src="${assets.ritaBoard}" alt="" aria-hidden="true" />
+          <div class="trust-slots" id="trustSlots"></div>
+        </div>
+        <div class="trust-target">Финал: [ B ][ B ][ B ][   ][ R ][ R ][ R ]</div>
+        <button class="secondary-button" id="trustReset" type="button">Переиграть</button>
       </div>
     `;
 
-    const groove = document.getElementById("trustGroove");
-    const target = ["red", "blue", "red", "blue", "red", "blue"];
-    const state = ["blue", "red", "blue", "red", "red", "blue"];
-    let selected = null;
-    let solved = false;
+    const board = document.getElementById("trustBoard");
+    const slotsNode = document.getElementById("trustSlots");
+    const resetButton = document.getElementById("trustReset");
+    const slotLayout = [
+      { key: "slot-0", left: 13.85, top: 52.99 },
+      { key: "slot-1", left: 25.89, top: 52.99 },
+      { key: "slot-2", left: 37.93, top: 52.99 },
+      { key: "slot-3", left: 49.96, top: 52.99 },
+      { key: "slot-4", left: 62.00, top: 52.99 },
+      { key: "slot-5", left: 74.04, top: 52.99 },
+      { key: "slot-6", left: 86.08, top: 52.99 },
+    ];
+    const initialSlots = ["red", "red", "red", null, "blue", "blue", "blue"];
+    const state = {
+      slots: initialSlots.slice(),
+      solved: false,
+    };
+
+    function flashInvalid() {
+      board.classList.remove("trust-error");
+      void board.offsetWidth;
+      board.classList.add("trust-error");
+      setFeedback("Этот шар не может пройти таким путем.", "error");
+      audio.wrong();
+    }
+
+    function targetIndex(index, color) {
+      const step = color === "red" ? 1 : -1;
+      const near = index + step;
+      const jump = index + step * 2;
+      if (near >= 0 && near < state.slots.length && !state.slots[near]) {
+        return near;
+      }
+      if (
+        jump >= 0 &&
+        jump < state.slots.length &&
+        state.slots[near] &&
+        !state.slots[jump]
+      ) {
+        return jump;
+      }
+      return -1;
+    }
+
+    function isSolved() {
+      return state.slots.join("|") === ["blue", "blue", "blue", "", "red", "red", "red"].join("|");
+    }
+
+    function resetPuzzle() {
+      state.slots = initialSlots.slice();
+      state.solved = false;
+      board.classList.remove("solved", "trust-shift", "trust-error");
+      ui.status.textContent = "";
+      setFeedback("Шары возвращаются в исходную раскладку.");
+      render();
+    }
+
+    function moveOrb(index) {
+      const color = state.slots[index];
+      if (!color || state.solved) {
+        return;
+      }
+      const nextIndex = targetIndex(index, color);
+      if (nextIndex === -1) {
+        flashInvalid();
+        return;
+      }
+      state.slots[nextIndex] = color;
+      state.slots[index] = null;
+      board.classList.remove("trust-shift");
+      void board.offsetWidth;
+      board.classList.add("trust-shift");
+      audio.hum(0.58);
+      render();
+      if (isSolved()) {
+        state.solved = true;
+        board.classList.add("solved");
+        ui.status.innerHTML = `<span class="solved-badge">Чаша доверия опускается.</span>`;
+        setFeedback("Шары меняются сторонами, и чаша принимает доверие.", "success");
+        activatePedestal(playerKey);
+      }
+    }
 
     function render() {
-      groove.innerHTML = "";
-      state.forEach(function (color, index) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = `orb-slot ${selected === index ? "selected" : ""}`.trim();
-        button.innerHTML = `<img class="orb-image" src="${color === "red" ? assets.redOrb : assets.blueOrb}" alt="${color}" />`;
-        button.addEventListener("click", function () {
-          if (solved) {
-            return;
-          }
-          if (selected === null) {
-            selected = index;
-          } else if (selected === index) {
-            selected = null;
-          } else {
-            const temp = state[selected];
-            state[selected] = state[index];
-            state[index] = temp;
-            selected = null;
-            audio.hum(0.6);
-            if (state.join("|") === target.join("|")) {
-              solved = true;
-              ui.status.innerHTML = `<span class="solved-badge">Чаша доверия опускается.</span>`;
-              setFeedback("Сферы находят свои борозды, и плита мягко откликается.", "success");
-              activatePedestal(playerKey);
-            }
-          }
-          render();
+      slotsNode.innerHTML = "";
+      slotLayout.forEach(function (slot, index) {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "trust-slot";
+        item.style.left = `${slot.left}%`;
+        item.style.top = `${slot.top}%`;
+        const color = state.slots[index];
+        if (color) {
+          item.innerHTML = `<span class="trust-orb ${color}"><img class="orb-image" src="${color === "red" ? assets.redOrb : assets.blueOrb}" alt="" aria-hidden="true" /></span>`;
+        }
+        item.addEventListener("click", function () {
+          moveOrb(index);
         });
-        groove.appendChild(button);
+        slotsNode.appendChild(item);
       });
     }
+
+    resetButton.addEventListener("click", function () {
+      resetPuzzle();
+    });
 
     render();
     markOpened("pedestal_trust");
@@ -691,37 +808,95 @@
     setCopy(
       "Загадка II",
       "Правда должна выдержать взгляд камня.",
-      "Выбери единственное верное утверждение."
+      "Выбери единственно верное утверждение. Ошибка пробуждает каменную проверку разума."
     );
     ui.game.innerHTML = `
       <div class="honesty-shell">
         <div class="honesty-visual">
           <img class="truth-bowl-image" src="${assets.truthBowl}" alt="" aria-hidden="true" />
-          <img class="truth-stone-image" src="${assets.truthStone}" alt="" aria-hidden="true" />
+          <div class="honesty-stones">
+            <button class="honesty-stone" data-answer="1" type="button">
+              <img class="truth-stone-image" src="${assets.truthStone}" alt="" aria-hidden="true" />
+              <span class="honesty-statement">Первый и второй символы были огнем.</span>
+            </button>
+            <button class="honesty-stone" data-answer="2" type="button">
+              <img class="truth-stone-image" src="${assets.truthStone}" alt="" aria-hidden="true" />
+              <span class="honesty-statement">Первый и третий символы были звездой.</span>
+            </button>
+            <button class="honesty-stone" data-answer="3" type="button">
+              <img class="truth-stone-image" src="${assets.truthStone}" alt="" aria-hidden="true" />
+              <span class="honesty-statement">Первый и третий символы противоположны.</span>
+            </button>
+          </div>
         </div>
-        <div class="honesty-choices">
-          <button class="choice-button" data-answer="1" type="button">1. Первый и второй символы были огнем.</button>
-          <button class="choice-button" data-answer="2" type="button">2. Первый и третий символы были звездой.</button>
-          <button class="choice-button" data-answer="3" type="button">3. Первый и третий символы противоположны.</button>
+        <div class="honesty-challenge hidden" id="honestyChallenge">
+          <div class="tagline" id="honestyProblem"></div>
+          <div class="honesty-answer-row">
+            <input class="riddle-input" id="honestyInput" inputmode="numeric" placeholder="Ответ" />
+            <button class="primary-button" id="honestySubmit" type="button">Ответить</button>
+          </div>
         </div>
       </div>
     `;
 
-    ui.game.querySelectorAll(".choice-button").forEach(function (button) {
-      button.addEventListener("click", function () {
-        if (button.dataset.answer === "3") {
+    const challenge = document.getElementById("honestyChallenge");
+    const problemNode = document.getElementById("honestyProblem");
+    const input = document.getElementById("honestyInput");
+    const submit = document.getElementById("honestySubmit");
+    const stones = Array.from(ui.game.querySelectorAll(".honesty-stone"));
+    let gateOpen = true;
+    let answer = 0;
+
+    function openChallenge() {
+      const left = 347 + Math.floor(Math.random() * 511);
+      const right = 468 + Math.floor(Math.random() * 421);
+      answer = left + right;
+      gateOpen = false;
+      challenge.classList.remove("hidden");
+      problemNode.textContent = `Камень требует ответить: ${left} + ${right} = ?`;
+      input.value = "";
+      input.focus();
+    }
+
+    function resolveChallenge() {
+      if (Number(input.value) !== answer) {
+        setFeedback("Камень не принимает этот ответ.", "error");
+        audio.wrong();
+        return;
+      }
+      gateOpen = true;
+      challenge.classList.add("hidden");
+      setFeedback("Камень успокаивается и позволяет снова выбрать истину.");
+      audio.hum(0.52);
+    }
+
+    submit.addEventListener("click", resolveChallenge);
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        resolveChallenge();
+      }
+    });
+
+    stones.forEach(function (stone) {
+      stone.addEventListener("click", function () {
+        if (!gateOpen) {
+          setFeedback("Сначала ответь на каменную задачу.", "error");
+          return;
+        }
+        if (stone.dataset.answer === "3") {
           ui.status.innerHTML = `<span class="solved-badge">Камень ложится в чашу.</span>`;
           setFeedback("Камень признает истину и успокаивается в чаше.", "success");
           audio.success();
           activatePedestal(playerKey);
           return;
         }
-        button.classList.remove("crack");
-        void button.offsetWidth;
-        button.classList.add("crack");
+        stone.classList.remove("crack");
+        void stone.offsetWidth;
+        stone.classList.add("crack");
         ui.status.textContent = "Камень лжет.";
         setFeedback("Неверный ответ отдается трещиной по каменной кромке.", "error");
         audio.wrong();
+        openChallenge();
       });
     });
 
@@ -733,13 +908,14 @@
     setCopy(
       "Загадка II",
       "Огонек должен пережить тень.",
-      "Продержись 20 секунд. Управляй огоньком влево и вправо. Допустимы 3 жизни."
+      "Продержись 20 секунд. У тебя одна жизнь и только три перезапуска после поражения."
     );
     ui.game.innerHTML = `
       <div class="hope-shell">
         <div class="hope-hud">
-          <div class="tagline" id="hopeLives">Жизни: 3</div>
+          <div class="tagline" id="hopeLives">Жизнь: 1</div>
           <div class="tagline" id="hopeTimer">Время: 20</div>
+          <div class="tagline" id="hopeRestarts">Перезапуски: 3</div>
         </div>
         <div class="hope-bowl"><div class="hope-progress" id="hopeProgress"></div></div>
         <div class="hope-arena" id="hopeArena">
@@ -748,6 +924,7 @@
             <img src="${assets.hopeFlame}" alt="Огонек" />
           </div>
         </div>
+        <button class="primary-button hidden" id="hopeRestart" type="button">Попробовать снова</button>
       </div>
     `;
 
@@ -756,13 +933,25 @@
     const livesNode = document.getElementById("hopeLives");
     const timerNode = document.getElementById("hopeTimer");
     const progressNode = document.getElementById("hopeProgress");
+    const restartsNode = document.getElementById("hopeRestarts");
+    const restartButton = document.getElementById("hopeRestart");
+    const pressed = { left: false, right: false };
     const state = {
       x: 0,
-      lives: 3,
+      lives: 1,
       running: true,
       obstacles: [],
+      frame: 0,
+      lastSpawn: 0,
+      startAt: 0,
+      restartsLeft: 3,
     };
-    const pressed = { left: false, right: false };
+    let pointerActive = false;
+
+    function updateHud() {
+      livesNode.textContent = `Жизнь: ${state.lives}`;
+      restartsNode.textContent = `Перезапуски: ${state.restartsLeft}`;
+    }
 
     function updatePlayer() {
       const maxX = arena.clientWidth - player.offsetWidth - 10;
@@ -770,8 +959,133 @@
       player.style.left = `${state.x}px`;
     }
 
-    state.x = arena.clientWidth / 2 - 22;
-    updatePlayer();
+    function clearObstacles() {
+      state.obstacles.forEach(function (item) {
+        item.node.remove();
+      });
+      state.obstacles = [];
+    }
+
+    function stopRound() {
+      state.running = false;
+      if (state.frame) {
+        window.cancelAnimationFrame(state.frame);
+        state.frame = 0;
+      }
+    }
+
+    function loseRound() {
+      state.lives = 0;
+      updateHud();
+      stopRound();
+      clearObstacles();
+      audio.wrong();
+      if (state.restartsLeft > 0) {
+        ui.status.textContent = "Пламя погасло. У тебя осталось еще несколько попыток.";
+        restartButton.classList.remove("hidden");
+      } else {
+        ui.status.textContent = "Пламя погасло окончательно.";
+      }
+      setFeedback("Тень накрыла огонек.", "error");
+    }
+
+    function spawnObstacle() {
+      const image = document.createElement("img");
+      image.className = "hope-obstacle";
+      image.src = assets.shadowObstacle;
+      image.alt = "";
+      image.setAttribute("aria-hidden", "true");
+      arena.appendChild(image);
+      const size = 58 + Math.random() * 34;
+      state.obstacles.push({
+        node: image,
+        x: Math.random() * (arena.clientWidth - size),
+        y: -size,
+        size,
+        speed: 3.4 + Math.random() * 2.2,
+      });
+      image.style.width = `${size}px`;
+      image.style.height = `${size}px`;
+    }
+
+    function tick(now) {
+      if (!state.running) {
+        return;
+      }
+      if (pressed.left) {
+        state.x -= 6;
+      }
+      if (pressed.right) {
+        state.x += 6;
+      }
+      updatePlayer();
+
+      const elapsed = (now - state.startAt) / 1000;
+      const remaining = Math.max(0, 20 - elapsed);
+      timerNode.textContent = `Время: ${Math.ceil(remaining)}`;
+      progressNode.style.width = `${Math.min(100, (elapsed / 20) * 100)}%`;
+
+      if (now - state.lastSpawn > 520) {
+        spawnObstacle();
+        state.lastSpawn = now;
+      }
+
+      const playerRect = {
+        left: state.x,
+        right: state.x + player.offsetWidth,
+        top: arena.clientHeight - 118,
+        bottom: arena.clientHeight - 36,
+      };
+
+      state.obstacles = state.obstacles.filter(function (item) {
+        item.y += item.speed;
+        item.node.style.transform = `translate(${item.x}px, ${item.y}px)`;
+        const collided =
+          item.x < playerRect.right &&
+          item.x + item.size > playerRect.left &&
+          item.y < playerRect.bottom &&
+          item.y + item.size > playerRect.top;
+        if (collided) {
+          item.node.remove();
+          loseRound();
+          return false;
+        }
+        if (item.y > arena.clientHeight + item.size) {
+          item.node.remove();
+          return false;
+        }
+        return true;
+      });
+
+      if (remaining <= 0) {
+        stopRound();
+        clearObstacles();
+        ui.status.innerHTML = `<span class="solved-badge">Огонек дожил до рассвета.</span>`;
+        setFeedback("Воск наполняет чашу, а надежда удерживает свет.", "success");
+        audio.success();
+        activatePedestal(playerKey);
+        return;
+      }
+
+      state.frame = window.requestAnimationFrame(tick);
+    }
+
+    function startRound() {
+      stopRound();
+      clearObstacles();
+      state.lives = 1;
+      state.running = true;
+      state.lastSpawn = 0;
+      state.startAt = performance.now();
+      state.x = arena.clientWidth / 2 - 22;
+      updatePlayer();
+      updateHud();
+      progressNode.style.width = "0%";
+      timerNode.textContent = "Время: 20";
+      restartButton.classList.add("hidden");
+      ui.status.textContent = "";
+      state.frame = window.requestAnimationFrame(tick);
+    }
 
     function onKeyDown(event) {
       if (event.key === "ArrowLeft") {
@@ -794,7 +1108,6 @@
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
 
-    let pointerActive = false;
     arena.addEventListener("pointerdown", function () {
       pointerActive = true;
     });
@@ -806,113 +1119,28 @@
       state.x = event.clientX - rect.left - player.offsetWidth / 2;
       updatePlayer();
     });
-    window.addEventListener("pointerup", function () {
+    const pointerUp = function () {
       pointerActive = false;
+    };
+    window.addEventListener("pointerup", pointerUp);
+
+    restartButton.addEventListener("click", function () {
+      if (state.restartsLeft <= 0) {
+        return;
+      }
+      state.restartsLeft -= 1;
+      updateHud();
+      startRound();
     });
 
-    function spawnObstacle() {
-      const image = document.createElement("img");
-      image.className = "hope-obstacle";
-      image.src = assets.shadowObstacle;
-      image.alt = "";
-      image.setAttribute("aria-hidden", "true");
-      arena.appendChild(image);
-      const size = 28 + Math.random() * 20;
-      state.obstacles.push({
-        node: image,
-        x: Math.random() * (arena.clientWidth - size),
-        y: -size,
-        size,
-        speed: 2.5 + Math.random() * 2.8,
-      });
-      image.style.width = `${size}px`;
-      image.style.height = `${size}px`;
-    }
-
-    function hit() {
-      state.lives -= 1;
-      livesNode.textContent = `Жизни: ${state.lives}`;
-      setFeedback("Тень задела огонек.", "error");
-      audio.wrong();
-      if (state.lives <= 0) {
-        state.running = false;
-        ui.status.textContent = "Пламя погасло. Попробуй еще раз.";
-      }
-    }
-
-    let lastSpawn = 0;
-    let frame = null;
-    const start = performance.now();
-
-    function tick(now) {
-      if (!state.running) {
-        return;
-      }
-
-      if (pressed.left) {
-        state.x -= 5;
-      }
-      if (pressed.right) {
-        state.x += 5;
-      }
-      updatePlayer();
-
-      const elapsed = (now - start) / 1000;
-      const remaining = Math.max(0, 20 - elapsed);
-      timerNode.textContent = `Время: ${Math.ceil(remaining)}`;
-      progressNode.style.width = `${Math.min(100, (elapsed / 20) * 100)}%`;
-
-      if (now - lastSpawn > 480) {
-        spawnObstacle();
-        lastSpawn = now;
-      }
-
-      const playerRect = {
-        left: state.x,
-        right: state.x + player.offsetWidth,
-        top: arena.clientHeight - 110,
-        bottom: arena.clientHeight - 44,
-      };
-
-      state.obstacles = state.obstacles.filter(function (item) {
-        item.y += item.speed;
-        item.node.style.transform = `translate(${item.x}px, ${item.y}px)`;
-        const collided =
-          item.x < playerRect.right &&
-          item.x + item.size > playerRect.left &&
-          item.y < playerRect.bottom &&
-          item.y + item.size > playerRect.top;
-        if (collided) {
-          item.node.remove();
-          hit();
-          return false;
-        }
-        if (item.y > arena.clientHeight + item.size) {
-          item.node.remove();
-          return false;
-        }
-        return true;
-      });
-
-      if (remaining <= 0) {
-        state.running = false;
-        ui.status.innerHTML = `<span class="solved-badge">Огонек дожил до рассвета.</span>`;
-        setFeedback("Воск наполняет чашу, а надежда удерживает свет.", "success");
-        audio.success();
-        activatePedestal(playerKey);
-        return;
-      }
-
-      frame = window.requestAnimationFrame(tick);
-    }
-
-    frame = window.requestAnimationFrame(tick);
+    updateHud();
+    startRound();
     currentCleanup = function () {
+      stopRound();
+      clearObstacles();
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
-      if (frame) {
-        window.cancelAnimationFrame(frame);
-      }
+      window.removeEventListener("pointerup", pointerUp);
     };
     markOpened("pedestal_hope");
   }
@@ -921,153 +1149,286 @@
     const ui = pedestalWrapper(playerKey);
     setCopy(
       "Загадка II",
-      "Соедини пары, не пересекая линии.",
-      "Соедини одинаковые цвета: красный, синий, зеленый и золотой."
+      "Единство живет на пересечении путей.",
+      "Нажми на руну, выбери цвет и веди линию по клеткам. Пути не должны пересекаться."
     );
     ui.game.innerHTML = `
       <div class="unity-shell">
         <div class="unity-board" id="unityBoard">
           <img class="unity-board-image" id="unityBoardImage" src="${assets.asyaBoard}" alt="" aria-hidden="true" />
-          <svg class="unity-svg" id="unitySvg" viewBox="0 0 320 320"></svg>
+          <div class="unity-grid" id="unityGrid" aria-label="Поле единства"></div>
+          <svg class="unity-svg" id="unitySvg" viewBox="0 0 500 500" preserveAspectRatio="none"></svg>
         </div>
-        <div class="tagline">Если линии пересекутся, связь сбросится.</div>
+        <div class="tagline">Руны лежат в клетках. Соедини одинаковые цвета и не дай линиям пересечься.</div>
       </div>
     `;
 
     const board = document.getElementById("unityBoard");
     const boardImage = document.getElementById("unityBoardImage");
+    const grid = document.getElementById("unityGrid");
     const svg = document.getElementById("unitySvg");
+    const size = 5;
     const nodes = [
-      { id: "red-a", color: "red", x: 48, y: 48 },
-      { id: "red-b", color: "red", x: 272, y: 272 },
-      { id: "blue-a", color: "blue", x: 272, y: 48 },
-      { id: "blue-b", color: "blue", x: 48, y: 272 },
-      { id: "green-a", color: "green", x: 48, y: 160 },
-      { id: "green-b", color: "green", x: 272, y: 160 },
-      { id: "gold-a", color: "gold", x: 160, y: 48 },
-      { id: "gold-b", color: "gold", x: 160, y: 272 },
+      { id: "red-a", color: "red", x: 0, y: 0 },
+      { id: "red-b", color: "red", x: 2, y: 4 },
+      { id: "yellow-a", color: "yellow", x: 2, y: 0 },
+      { id: "yellow-b", color: "yellow", x: 1, y: 3 },
+      { id: "green-a", color: "green", x: 3, y: 0 },
+      { id: "green-b", color: "green", x: 2, y: 3 },
+      { id: "cyan-a", color: "cyan", x: 3, y: 2 },
+      { id: "cyan-b", color: "cyan", x: 4, y: 4 },
+      { id: "orange-a", color: "orange", x: 4, y: 0 },
+      { id: "orange-b", color: "orange", x: 4, y: 3 },
     ];
     const colors = {
       red: "#f06767",
-      blue: "#71a5ff",
-      green: "#7eb792",
-      gold: "#f6d99b",
+      yellow: "#f6df55",
+      green: "#7dd54a",
+      cyan: "#5edff1",
+      orange: "#ff983c",
     };
-    const connections = {};
-    let selectedColor = "";
+    const paths = {};
+    const occupied = new Map();
+    let activeColor = "";
+    let activeStartId = "";
+    let pointerDown = false;
     let solved = false;
 
-    function ccw(a, b, c) {
-      return (c.y - a.y) * (b.x - a.x) > (b.y - a.y) * (c.x - a.x);
+    function cellKey(cell) {
+      return `${cell.x}:${cell.y}`;
     }
 
-    function intersects(a, b, c, d) {
-      return ccw(a, c, d) !== ccw(b, c, d) && ccw(a, b, c) !== ccw(a, b, d);
+    function sameCell(a, b) {
+      return Boolean(a && b && a.x === b.x && a.y === b.y);
     }
 
-    function nodeById(id) {
-      return nodes.find(function (node) {
-        return node.id === id;
+    function endpointsForColor(color) {
+      return nodes.filter(function (node) {
+        return node.color === color;
       });
     }
 
-    function draw() {
-      svg.innerHTML = "";
-      Object.keys(connections).forEach(function (color) {
-        const pair = connections[color];
-        const from = nodeById(pair[0]);
-        const to = nodeById(pair[1]);
-        svg.insertAdjacentHTML(
-          "beforeend",
-          `<path d="M${from.x} ${from.y} C ${from.x} 160, ${to.x} 160, ${to.x} ${to.y}" stroke="${colors[color]}" stroke-width="10" fill="none" stroke-linecap="round" filter="url(#glow-${color})"/>`
-        );
+    function otherEndpoint(color, id) {
+      return endpointsForColor(color).find(function (node) {
+        return node.id !== id;
       });
-      svg.insertAdjacentHTML(
-        "afterbegin",
-        `<defs>
-          <filter id="glow-red"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-          <filter id="glow-blue"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-          <filter id="glow-green"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-          <filter id="glow-gold"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        </defs>`
+    }
+
+    function clearColor(color) {
+      delete paths[color];
+      Array.from(occupied.entries()).forEach(function (entry) {
+        if (entry[1] === color) {
+          occupied.delete(entry[0]);
+        }
+      });
+    }
+
+    function pathIsComplete(color) {
+      const path = paths[color];
+      if (!path || path.length < 2) {
+        return false;
+      }
+      const endpoints = endpointsForColor(color);
+      return (
+        (sameCell(path[0], endpoints[0]) && sameCell(path[path.length - 1], endpoints[1])) ||
+        (sameCell(path[0], endpoints[1]) && sameCell(path[path.length - 1], endpoints[0]))
       );
     }
 
-    function placeNodes() {
-      nodes.forEach(function (node) {
-        let button = board.querySelector(`[data-node="${node.id}"]`);
-        if (!button) {
-          button = document.createElement("button");
-          button.type = "button";
-          button.className = `flow-node ${node.color}`;
-          button.dataset.node = node.id;
-          button.innerHTML = `<img src="${assets.asyaRune}" alt="" aria-hidden="true" /><span class="flow-core"></span>`;
-          button.addEventListener("click", function () {
-            if (solved) {
-              return;
-            }
-            if (!selectedColor) {
-              selectedColor = node.color;
-              setFeedback(`Выбрана ${node.color} связь.`);
-              return;
-            }
-            if (selectedColor !== node.color) {
-              selectedColor = node.color;
-              setFeedback("Соединять можно только одинаковые цвета.", "error");
-              audio.wrong();
-              return;
-            }
-            const endpoints = nodes.filter(function (item) {
-              return item.color === node.color;
-            });
-            const from = endpoints[0];
-            const to = endpoints[1];
-            const crossing = Object.keys(connections).some(function (color) {
-              if (color === node.color) {
-                return false;
-              }
-              const pair = connections[color];
-              return intersects(from, to, nodeById(pair[0]), nodeById(pair[1]));
-            });
-            if (crossing) {
-              delete connections[node.color];
-              selectedColor = "";
-              board.classList.remove("line-error");
-              void board.offsetWidth;
-              board.classList.add("line-error");
-              setFeedback("Линии пересеклись и вспыхнули красным.", "error");
-              audio.wrong();
-              draw();
-              return;
-            }
-            connections[node.color] = [from.id, to.id];
-            selectedColor = "";
-            audio.hum(0.8);
-            draw();
-            if (Object.keys(connections).length === 4) {
-              solved = true;
-              boardImage.src = assets.asyaBoardSolved;
-              board.querySelectorAll(".flow-node img").forEach(function (image) {
-                image.src = assets.asyaRuneActive;
-              });
-              ui.status.innerHTML = `<span class="solved-badge">Поле вспыхивает единством.</span>`;
-              setFeedback("Все пути соединены без пересечений, и магия поля замыкается.", "success");
-              audio.success();
-              activatePedestal(playerKey);
-            }
-          });
-          board.appendChild(button);
+    function renderPaths() {
+      const step = 100;
+      svg.innerHTML = `
+        <defs>
+          <filter id="glow-red"><feGaussianBlur stdDeviation="2.4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="glow-yellow"><feGaussianBlur stdDeviation="2.4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="glow-green"><feGaussianBlur stdDeviation="2.4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="glow-cyan"><feGaussianBlur stdDeviation="2.4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="glow-orange"><feGaussianBlur stdDeviation="2.4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+      `;
+
+      Object.keys(paths).forEach(function (color) {
+        const path = paths[color];
+        if (!path || !path.length) {
+          return;
         }
-        button.style.left = `${(node.x / 320) * board.clientWidth}px`;
-        button.style.top = `${(node.y / 320) * board.clientWidth}px`;
+        const points = path.map(function (cell) {
+          return `${cell.x * step + step / 2},${cell.y * step + step / 2}`;
+        }).join(" ");
+        svg.insertAdjacentHTML(
+          "beforeend",
+          `<polyline points="${points}" fill="none" stroke="${colors[color]}" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow-${color})" />`
+        );
       });
-      draw();
+
+      Array.from(grid.children).forEach(function (cell) {
+        cell.className = "unity-cell";
+        const color = occupied.get(`${cell.dataset.x}:${cell.dataset.y}`);
+        if (color) {
+          cell.classList.add("occupied", `occupied-${color}`);
+        }
+        if (activeColor && paths[activeColor]) {
+          const active = paths[activeColor].some(function (entry) {
+            return String(entry.x) === cell.dataset.x && String(entry.y) === cell.dataset.y;
+          });
+          if (active) {
+            cell.classList.add("active-path");
+          }
+        }
+      });
+
+      board.querySelectorAll(".flow-node").forEach(function (rune) {
+        const node = nodes.find(function (entry) {
+          return entry.id === rune.dataset.node;
+        });
+        rune.classList.toggle("selected", node.color === activeColor);
+        rune.querySelector("img").src = pathIsComplete(node.color) ? assets.asyaRuneActive : assets.asyaRune;
+      });
     }
 
-    placeNodes();
-    window.addEventListener("resize", placeNodes);
+    function selectNode(node) {
+      activeColor = node.color;
+      activeStartId = node.id;
+      clearColor(node.color);
+      paths[node.color] = [{ x: node.x, y: node.y }];
+      occupied.set(cellKey(node), node.color);
+      setFeedback("Руна выбрана. Веди линию по клеткам.");
+      audio.hum(0.6);
+      renderPaths();
+    }
+
+    function finishIfSolved() {
+      const completed = Object.keys(colors).filter(function (color) {
+        return pathIsComplete(color);
+      }).length;
+      if (completed !== Object.keys(colors).length) {
+        return;
+      }
+      solved = true;
+      activeColor = "";
+      activeStartId = "";
+      boardImage.src = assets.asyaBoardSolved;
+      ui.status.innerHTML = `<span class="solved-badge">Поле единства оживает.</span>`;
+      setFeedback("Все руны соединяются. Пьедестал отвечает светом.", "success");
+      audio.success();
+      renderPaths();
+      activatePedestal(playerKey);
+    }
+
+    function flashIntersection() {
+      board.classList.remove("line-error");
+      void board.offsetWidth;
+      board.classList.add("line-error");
+      setFeedback("Линия не может пересекаться с другой.", "error");
+      audio.wrong();
+    }
+
+    function handleCellInput(x, y) {
+      if (!activeColor || solved) {
+        return;
+      }
+      const path = paths[activeColor];
+      const last = path[path.length - 1];
+      const next = { x, y };
+      const dx = Math.abs(next.x - last.x);
+      const dy = Math.abs(next.y - last.y);
+      if (dx + dy !== 1) {
+        return;
+      }
+
+      const previous = path.length > 1 ? path[path.length - 2] : null;
+      if (previous && sameCell(previous, next)) {
+        occupied.delete(cellKey(last));
+        path.pop();
+        renderPaths();
+        return;
+      }
+
+      const owner = occupied.get(cellKey(next));
+      if (owner && owner !== activeColor) {
+        clearColor(activeColor);
+        activeColor = "";
+        activeStartId = "";
+        flashIntersection();
+        renderPaths();
+        return;
+      }
+
+      const finish = otherEndpoint(activeColor, activeStartId);
+      const start = nodes.find(function (node) {
+        return node.id === activeStartId;
+      });
+      if (sameCell(next, start)) {
+        return;
+      }
+
+      path.push(next);
+      occupied.set(cellKey(next), activeColor);
+      renderPaths();
+
+      if (sameCell(next, finish)) {
+        activeColor = "";
+        activeStartId = "";
+        audio.hum(1);
+        renderPaths();
+        finishIfSolved();
+      }
+    }
+
+    function renderBoard() {
+      grid.innerHTML = "";
+      for (let y = 0; y < size; y += 1) {
+        for (let x = 0; x < size; x += 1) {
+          const cell = document.createElement("button");
+          cell.type = "button";
+          cell.className = "unity-cell";
+          cell.dataset.x = String(x);
+          cell.dataset.y = String(y);
+          cell.addEventListener("pointerdown", function (event) {
+            pointerDown = true;
+            handleCellInput(x, y);
+            event.preventDefault();
+          });
+          cell.addEventListener("pointerenter", function () {
+            if (pointerDown) {
+              handleCellInput(x, y);
+            }
+          });
+          grid.appendChild(cell);
+        }
+      }
+
+      nodes.forEach(function (node) {
+        const cell = grid.children[node.y * size + node.x];
+        const rune = document.createElement("button");
+        rune.type = "button";
+        rune.className = `flow-node ${node.color}`;
+        rune.dataset.node = node.id;
+        rune.innerHTML = `<img src="${assets.asyaRune}" alt="" aria-hidden="true" /><span class="flow-core"></span>`;
+        rune.addEventListener("click", function (event) {
+          if (solved) {
+            return;
+          }
+          selectNode(node);
+          event.stopPropagation();
+        });
+        cell.appendChild(rune);
+      });
+
+      renderPaths();
+    }
+
+    const handlePointerUp = function () {
+      pointerDown = false;
+    };
+    window.addEventListener("pointerup", handlePointerUp);
+    grid.addEventListener("pointerleave", function () {
+      pointerDown = false;
+    });
+
+    renderBoard();
     currentCleanup = function () {
-      window.removeEventListener("resize", placeNodes);
+      window.removeEventListener("pointerup", handlePointerUp);
     };
     markOpened("pedestal_unity");
   }
