@@ -164,6 +164,8 @@ input {
 .hero-visual {
   position: relative;
   min-height: 392px;
+  display: grid;
+  place-items: center;
   border-radius: 24px;
   overflow: hidden;
 }
@@ -194,16 +196,16 @@ input {
 .hero-box-image {
   position: absolute;
   left: 50%;
-  bottom: 10px;
-  width: min(90%, 620px);
-  transform: translateX(-50%);
+  top: 50%;
+  width: min(88%, 620px);
+  transform: translate(-50%, -44%);
   filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.44));
 }
 
 .hero-glow {
   position: absolute;
-  inset: auto 25% 10% 25%;
-  height: 38%;
+  inset: auto 24% 12% 24%;
+  height: 34%;
   border-radius: 50%;
   background: radial-gradient(circle, rgba(255, 209, 124, 0.38), transparent 70%);
   animation: pulse 3.5s ease-in-out infinite;
@@ -898,6 +900,11 @@ code {
 
   .door-image {
     min-height: 520px;
+  }
+
+  .hero-box-image {
+    width: min(94%, 520px);
+    transform: translate(-50%, -40%);
   }
 
   .ring-button {
