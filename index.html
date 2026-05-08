@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Весы Хранителей</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="puzzle">
+        <div class="sigil" aria-hidden="true">
+          <span></span>
+        </div>
+
+        <h1>Весы Хранителей</h1>
+        <p class="lead">Перед тобой твой пьедестал. Активируй его, когда будешь готов.</p>
+
+        <label class="field">
+          <span>Персонаж</span>
+          <select id="characterSelect">
+            <option>Артемис</option>
+            <option>Ася</option>
+            <option>Ваня</option>
+            <option>Мира</option>
+            <option>Рита</option>
+            <option>Даша</option>
+            <option>Максим</option>
+          </select>
+        </label>
+
+        <button id="activateButton" type="button">Активировать пьедестал</button>
+        <p id="statusText" class="status" aria-live="polite"></p>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,157 @@
+:root {
+  color-scheme: dark;
+  --bg: #0b0f14;
+  --panel: rgba(20, 23, 29, 0.9);
+  --gold: #d8b86a;
+  --gold-bright: #ffe49a;
+  --mist: #9eb8c7;
+  --text: #f1ead9;
+  --line: rgba(216, 184, 106, 0.28);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 50% 35%, rgba(216, 184, 106, 0.16), transparent 32rem),
+    linear-gradient(145deg, #07090d 0%, #111923 58%, #090b10 100%);
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.puzzle {
+  width: min(100%, 480px);
+  padding: 28px 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  text-align: center;
+}
+
+.sigil {
+  width: 132px;
+  height: 132px;
+  margin: 0 auto 22px;
+  border: 2px solid var(--gold);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  transition: box-shadow 600ms ease, transform 600ms ease;
+}
+
+.sigil::before,
+.sigil::after,
+.sigil span {
+  content: "";
+  position: absolute;
+  border: 1px solid rgba(216, 184, 106, 0.72);
+}
+
+.sigil::before {
+  width: 76px;
+  height: 76px;
+  transform: rotate(45deg);
+}
+
+.sigil::after {
+  width: 2px;
+  height: 100px;
+  background: rgba(216, 184, 106, 0.72);
+}
+
+.sigil span {
+  width: 100px;
+  height: 2px;
+  background: rgba(216, 184, 106, 0.72);
+}
+
+.sigil.active {
+  transform: scale(1.04);
+  box-shadow:
+    0 0 28px rgba(255, 228, 154, 0.85),
+    inset 0 0 34px rgba(255, 228, 154, 0.35);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+h1 {
+  margin: 0 0 12px;
+  font-size: clamp(30px, 9vw, 44px);
+  line-height: 1.05;
+  letter-spacing: 0;
+}
+
+.lead {
+  margin: 0 auto 24px;
+  max-width: 30rem;
+  color: var(--mist);
+  font-size: 18px;
+  line-height: 1.45;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+  text-align: left;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #d9e2e8;
+}
+
+select,
+button {
+  width: 100%;
+  min-height: 48px;
+  border-radius: 8px;
+  font: inherit;
+}
+
+select {
+  border: 1px solid rgba(158, 184, 199, 0.35);
+  background: #101820;
+  color: var(--text);
+  padding: 0 14px;
+}
+
+button {
+  border: 1px solid rgba(255, 228, 154, 0.72);
+  background: linear-gradient(180deg, #e8ca7c, #9f762f);
+  color: #14100a;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 28px rgba(216, 184, 106, 0.25);
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.status {
+  min-height: 24px;
+  margin: 16px 0 0;
+  color: var(--gold-bright);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.35);
+  }
+}
