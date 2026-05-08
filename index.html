@@ -2,36 +2,27 @@
 <html lang="ru">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Весы Хранителей</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Музыкальная шкатулка</title>
     <link rel="stylesheet" href="./style.css" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
   </head>
   <body>
+    <div class="ambient" aria-hidden="true">
+      <div class="mist mist-a"></div>
+      <div class="mist mist-b"></div>
+      <div class="particles" id="particles"></div>
+    </div>
+
     <main class="app-shell">
-      <section class="puzzle">
-        <div class="sigil" aria-hidden="true">
-          <span></span>
-        </div>
-
-        <h1>Весы Хранителей</h1>
-        <p class="lead">Перед тобой твой пьедестал. Активируй его, когда будешь готов.</p>
-
-        <label class="field">
-          <span>Персонаж</span>
-          <select id="characterSelect">
-            <option>Артемис</option>
-            <option>Ася</option>
-            <option>Ваня</option>
-            <option>Мира</option>
-            <option>Рита</option>
-            <option>Даша</option>
-            <option>Максим</option>
-          </select>
-        </label>
-
-        <button id="activateButton" type="button">Активировать пьедестал</button>
-        <p id="statusText" class="status" aria-live="polite"></p>
+      <section class="scene-card">
+        <div class="scene-topline" id="sceneTopline">Музыкальная шкатулка</div>
+        <h1 class="scene-title" id="sceneTitle">Перед вами старая музыкальная шкатулка.</h1>
+        <p class="scene-copy" id="sceneCopy">
+          Она молчит, но внутри будто что-то ждет.
+        </p>
+        <div class="feedback" id="feedback" aria-live="polite"></div>
+        <section id="sceneRoot"></section>
       </section>
     </main>
 
